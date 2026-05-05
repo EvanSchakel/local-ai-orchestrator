@@ -12,13 +12,22 @@
     "reload": "curl http://localhost:3131/api/reload",
     "logs": "tail -f ~/Library/Logs/local-ai-orchestrator/stdout.log"
   },
-  "keywords": ["ollama", "lmstudio", "mlx", "local-ai", "apple-silicon", "llm", "router", "openai-compatible"],
+  "keywords": [
+    "ollama",
+    "lmstudio",
+    "mlx",
+    "local-ai",
+    "apple-silicon",
+    "llm",
+    "router",
+    "openai-compatible"
+  ],
   "author": "Evan Schakel",
   "license": "MIT",
   "dependencies": {
     "better-sqlite3": "^9.4.3",
     "express": "^4.19.2",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0"

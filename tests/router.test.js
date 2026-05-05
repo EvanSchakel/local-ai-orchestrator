@@ -123,3 +123,91 @@ models:
     reloadRegistry();
   }
 });
+
+test('Router Timeout Logic', async (t) => {
+  // Start a local mock server that simply hangs
+  const server = http.createServer((req, res) => {
+    // We intentionally don't respond to simulate a timeout
+  });
+
+  await new Promise(resolve => server.listen(0, resolve));
+  const port = server.address().port;
+
+  if (fs.existsSync(CONFIG_PATH)) {
+    fs.copyFileSync(CONFIG_PATH, TEMP_BACKUP);
+  }
+
+  const mockConfig = `
+models:
+  - id: test-model-timeout
+    model_name: modelTimeout
+    provider: test
+    endpoint: http://localhost:${port}
+    memory_gb: 1
+    tags: [fast, code]
+`;
+  fs.writeFileSync(CONFIG_PATH, mockConfig, 'utf8');
+  reloadRegistry();
+
+  const childProcess = require('child_process');
+  const originalExecSync = childProcess.execSync;
+  childProcess.execSync = (command, options) => {
+    if (command === 'vm_stat') {
+      return 'Mach Virtual Memory Statistics: (page size of 16384 bytes)\\n' +
+             'Pages free:                               999999.\\n' +
+             'Pages active:                             123456.\\n' +
+             'Pages inactive:                           999999.\\n' +
+             'Pages speculative:                        0.\\n';
+    }
+    return originalExecSync(command, options);
+  };
+
+  const logs = [];
+  const originalConsoleLog = console.log;
+  const originalConsoleError = console.error;
+  console.log = (...args) => { logs.push(args.join(' ')); };
+  console.error = (...args) => { logs.push(args.join(' ')); };
+
+  try {
+    // Modify router timeout specifically for this test to speed it up
+    // The default is 300000ms. We could stub it or let it fail, but waiting 5m in tests is bad.
+    // Instead, since the options object spreads into the request options in proxyRequest? No, proxyRequest hardcodes 300000.
+    // Let's modify router.js to accept timeout from options, or we just override the timeout globally or via http.request wrap.
+    // Since we don't want to change proxyRequest API right now, let's wrap http.request to force a shorter timeout.
+
+    const originalHttpRequest = http.request;
+    http.request = (options, callback) => {
+      options.timeout = 100; // force a short timeout for the test
+      return originalHttpRequest(options, callback);
+    };
+
+    await assert.rejects(
+      routeRequest({
+        model: 'auto',
+        messages: [{ role: 'user', content: 'hello' }],
+        stream: false,
+        options: {}
+      }),
+      (err) => {
+        return err.message.includes('Request timeout') || err.message.includes('All suitable models failed');
+      },
+      'Should reject with timeout error'
+    );
+
+    http.request = originalHttpRequest;
+
+  } finally {
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+    childProcess.execSync = originalExecSync;
+    server.close();
+
+    if (fs.existsSync(TEMP_BACKUP)) {
+      fs.copyFileSync(TEMP_BACKUP, CONFIG_PATH);
+      fs.unlinkSync(TEMP_BACKUP);
+    } else {
+      fs.unlinkSync(CONFIG_PATH);
+    }
+    reloadRegistry();
+  }
+});
