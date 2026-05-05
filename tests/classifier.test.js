@@ -39,3 +39,11 @@ test('classifies RAG prompts via large system message', () => {
   ];
   assert.equal(classifyTask(messages), 'rag');
 });
+
+test('handles edge cases without crashing', () => {
+  assert.equal(classifyTask([]), 'quick', 'Empty messages array should default to quick');
+  assert.equal(classifyTask([{ role: 'system', content: 'hello' }]), 'quick', 'No user message should default to quick');
+  assert.equal(classifyTask([{ role: 'user' }]), 'quick', 'Missing content should default to quick');
+  assert.equal(classifyTask([{ role: 'user', content: '' }]), 'quick', 'Empty content should default to quick');
+  assert.equal(classifyTask([{ role: 'user', content: '   ' }]), 'quick', 'Whitespace content should default to quick');
+});
