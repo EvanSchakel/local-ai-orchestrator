@@ -9,6 +9,9 @@ const Database = require('better-sqlite3');
 const DB_PATH = path.join(__dirname, '..', 'data', 'benchmarks.db');
 
 let db;
+let stmtRecord;
+let stmtRecent;
+let stmtAveragesByModel;
 
 function getDb() {
   if (!db) {
@@ -39,10 +42,14 @@ function record(meta) {
       ? parseFloat(((meta.tokens / meta.latency_ms) * 1000).toFixed(2))
       : null;
 
-    getDb().prepare(`
-      INSERT INTO requests (model_id, provider, task_type, latency_ms, tokens, toks_per_sec, timestamp)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    if (!stmtRecord) {
+      stmtRecord = getDb().prepare(`
+        INSERT INTO requests (model_id, provider, task_type, latency_ms, tokens, toks_per_sec, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+    }
+
+    stmtRecord.run(
       meta.model_id, meta.provider, meta.task_type,
       meta.latency_ms, meta.tokens, toks_per_sec, meta.timestamp
     );
@@ -57,9 +64,12 @@ function record(meta) {
  */
 function recent(limit = 20) {
   try {
-    return getDb().prepare(
-      'SELECT * FROM requests ORDER BY id DESC LIMIT ?'
-    ).all(limit);
+    if (!stmtRecent) {
+      stmtRecent = getDb().prepare(
+        'SELECT * FROM requests ORDER BY id DESC LIMIT ?'
+      );
+    }
+    return stmtRecent.all(limit);
   } catch {
     return [];
   }
@@ -70,11 +80,14 @@ function recent(limit = 20) {
  */
 function averagesByModel() {
   try {
-    return getDb().prepare(`
-      SELECT model_id, AVG(toks_per_sec) as avg_toks_sec, COUNT(*) as request_count
-      FROM requests WHERE toks_per_sec IS NOT NULL
-      GROUP BY model_id ORDER BY avg_toks_sec DESC
-    `).all();
+    if (!stmtAveragesByModel) {
+      stmtAveragesByModel = getDb().prepare(`
+        SELECT model_id, AVG(toks_per_sec) as avg_toks_sec, COUNT(*) as request_count
+        FROM requests WHERE toks_per_sec IS NOT NULL
+        GROUP BY model_id ORDER BY avg_toks_sec DESC
+      `);
+    }
+    return stmtAveragesByModel.all();
   } catch {
     return [];
   }
