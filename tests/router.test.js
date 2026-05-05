@@ -123,3 +123,55 @@ models:
     reloadRegistry();
   }
 });
+
+test('Router Enforces MAX_RESPONSE_SIZE', async (t) => {
+  const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    // Write 51MB of data (limit is 50MB)
+    const chunk = Buffer.alloc(10 * 1024 * 1024, 'a');
+    for (let i = 0; i < 6; i++) {
+      res.write(chunk);
+    }
+    res.end();
+  });
+
+  await new Promise(resolve => server.listen(0, resolve));
+  const port = server.address().port;
+
+  if (fs.existsSync(CONFIG_PATH)) {
+    fs.copyFileSync(CONFIG_PATH, TEMP_BACKUP);
+  }
+
+  const mockConfig = `
+models:
+  - id: large-model
+    model_name: large
+    provider: test
+    endpoint: http://localhost:${port}
+    memory_gb: 1
+    tags: [fast, code]
+`;
+  fs.writeFileSync(CONFIG_PATH, mockConfig, 'utf8');
+  reloadRegistry();
+
+  try {
+    await assert.rejects(
+      routeRequest({
+        model: 'large-model',
+        messages: [{ role: 'user', content: 'large response' }],
+        stream: false,
+        options: {}
+      }),
+      /exceeded maximum allowed size/
+    );
+  } finally {
+    server.close();
+    if (fs.existsSync(TEMP_BACKUP)) {
+      fs.copyFileSync(TEMP_BACKUP, CONFIG_PATH);
+      fs.unlinkSync(TEMP_BACKUP);
+    } else {
+      fs.unlinkSync(CONFIG_PATH);
+    }
+    reloadRegistry();
+  }
+});
