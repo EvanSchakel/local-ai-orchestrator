@@ -123,3 +123,77 @@ models:
     reloadRegistry();
   }
 });
+
+test('Router Timeout Logic', async (t) => {
+  // Start a local mock server that delays response indefinitely
+  const server = http.createServer((req, res) => {
+    // Do not respond to simulate a timeout
+  });
+
+  await new Promise(resolve => server.listen(0, resolve));
+  const port = server.address().port;
+
+  // Backup existing config
+  if (fs.existsSync(CONFIG_PATH)) {
+    fs.copyFileSync(CONFIG_PATH, TEMP_BACKUP);
+  }
+
+  // Write mock config with a small timeout configuration
+  const mockConfig = `
+models:
+  - id: timeout-model
+    model_name: model-timeout
+    provider: test
+    endpoint: http://localhost:${port}
+    memory_gb: 1
+    tags: [fast]
+`;
+  fs.writeFileSync(CONFIG_PATH, mockConfig, 'utf8');
+
+  // Reload registry to populate cache
+  reloadRegistry();
+
+  const childProcess = require('child_process');
+  const originalExecSync = childProcess.execSync;
+  childProcess.execSync = (command, options) => {
+    if (command === 'vm_stat') {
+      return 'Mach Virtual Memory Statistics: (page size of 16384 bytes)\n' +
+             'Pages free:                               999999.\n';
+    }
+    return originalExecSync(command, options);
+  };
+
+  const logs = [];
+  const originalConsoleLog = console.log;
+  const originalConsoleError = console.error;
+  console.log = (...args) => { logs.push(args.join(' ')); };
+  console.error = (...args) => { logs.push(args.join(' ')); };
+
+  try {
+    await assert.rejects(
+      routeRequest({
+        model: 'auto',
+        messages: [{ role: 'user', content: 'test timeout' }],
+        stream: false,
+        options: { timeout: 100 } // override timeout for test
+      }),
+      /Request timed out/
+    );
+
+    const hasErrorLog = logs.some(log => log.includes('Error with model timeout-model'));
+    assert.ok(hasErrorLog, 'Should have logged an error about the model timeout');
+  } finally {
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+    childProcess.execSync = originalExecSync;
+    server.close();
+
+    if (fs.existsSync(TEMP_BACKUP)) {
+      fs.copyFileSync(TEMP_BACKUP, CONFIG_PATH);
+      fs.unlinkSync(TEMP_BACKUP);
+    } else {
+      fs.unlinkSync(CONFIG_PATH);
+    }
+    reloadRegistry();
+  }
+});
