@@ -8,9 +8,11 @@ const path = require('path');
 const { routeRequest } = require('./router');
 const { loadRegistry } = require('./modelRegistry');
 const benchmarkStore = require('./benchmarkStore');
+const config = require('./config');
 
 const app = express();
-const PORT = process.env.ORCHESTRATOR_PORT || 3131;
+const PORT = process.env.ORCHESTRATOR_PORT || config.server.port || 3131;
+const BIND_ADDRESS = config.server.bind_address || '127.0.0.1';
 
 app.use(express.json({ limit: '4mb' }));
 app.use(express.static(path.join(__dirname, 'dashboard')));
@@ -56,10 +58,10 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', port: PORT, timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, () => {
-  console.log(`🧠 Local AI Orchestrator running at http://localhost:${PORT}`);
-  console.log(`   Dashboard: http://localhost:${PORT}/dashboard`);
-  console.log(`   API:       http://localhost:${PORT}/v1/chat/completions`);
+app.listen(PORT, BIND_ADDRESS, () => {
+  console.log(`🧠 Local AI Orchestrator running at http://${BIND_ADDRESS}:${PORT}`);
+  console.log(`   Dashboard: http://${BIND_ADDRESS}:${PORT}/dashboard`);
+  console.log(`   API:       http://${BIND_ADDRESS}:${PORT}/v1/chat/completions`);
 });
 
 module.exports = app;
