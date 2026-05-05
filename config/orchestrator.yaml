@@ -1,0 +1,20 @@
+# Orchestrator Global Settings
+
+server:
+  port: 3131
+  # Set to your Tailscale IP to expose over your mesh network
+  # bind_address: "100.x.x.x"
+  bind_address: "127.0.0.1"
+
+memory:
+  # Minimum free GB buffer before large models are blocked
+  buffer_gb: 1.5
+  # Treat any model above this as "large"
+  large_model_threshold_gb: 8.0
+
+benchmarks:
+  # Store up to this many records in SQLite before rolling oldest
+  max_records: 5000
+
+logging:
+  level: info  # debug | info | warn | error

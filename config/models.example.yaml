@@ -1,0 +1,44 @@
+# Local AI Orchestrator — Model Registry
+# Copy this file to config/models.yaml and adjust to match your installed models.
+# provider: ollama | lmstudio | mlx
+
+models:
+  - id: qwen3.5-9b-q8
+    provider: ollama
+    endpoint: http://localhost:11434
+    model_name: "qwen3.5:9b-q8_0"
+    context_length: 16384
+    memory_gb: 9.5
+    tags: [code, math, reasoning]
+    preferred_for: [code, science]
+    notes: "Best all-rounder on 16GB. 13-17 tok/s on M4."
+
+  - id: qwen3.5-4b-q4
+    provider: ollama
+    endpoint: http://localhost:11434
+    model_name: "qwen3.5:4b-q4_K_M"
+    context_length: 8192
+    memory_gb: 3.0
+    tags: [fast, code, writing]
+    preferred_for: [quick, writing]
+    notes: "Fast, light. Good for short tasks and fallback."
+
+  - id: gpt-oss-20b
+    provider: lmstudio
+    endpoint: http://localhost:1234
+    model_name: "openai/gpt-oss-20b"
+    context_length: 32768
+    memory_gb: 13.5
+    tags: [reasoning, math, science]
+    preferred_for: [math, science]
+    notes: "Best reasoning on 16GB. Slow to load. Only use if memory allows."
+
+  - id: mlx-qwen-4b
+    provider: mlx
+    endpoint: http://localhost:8081
+    model_name: "mlx-community/Qwen2.5-4B-Instruct-4bit"
+    context_length: 8192
+    memory_gb: 2.5
+    tags: [fast]
+    preferred_for: [quick]
+    notes: "MLX server. Fastest option. Fallback for quick tasks."

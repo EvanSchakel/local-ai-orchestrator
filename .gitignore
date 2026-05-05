@@ -1,0 +1,5 @@
+node_modules/
+data/benchmarks.db
+config/models.yaml
+*.log
+.DS_Store
