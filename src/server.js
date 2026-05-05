@@ -53,8 +53,8 @@ app.get('/api/benchmarks', (_req, res) => {
 });
 
 // ── Dashboard API: memory stats ──────────────────────────────────────────────
-app.get('/api/memory', (_req, res) => {
-  const available_gb = getAvailableMemoryGB();
+app.get('/api/memory', async (_req, res) => {
+  const available_gb = await getAvailableMemoryGB();
   const total_gb = parseFloat((os.totalmem() / (1024 ** 3)).toFixed(2));
   // Available vs free is complex on macOS, but we'll calculate pressure
   // roughly as (total - available) / total * 100

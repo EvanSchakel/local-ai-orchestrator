@@ -4,17 +4,19 @@
  * Used by the router to block large model loads under memory pressure.
  */
 
-const { execSync } = require('child_process');
+const child_process = require('child_process');
+const util = require('util');
 
 const PAGE_SIZE_BYTES = 16384; // Apple Silicon uses 16KB pages
 
 /**
  * Returns available memory in GB (free + inactive pages)
- * @returns {number} available GB
+ * @returns {Promise<number>} available GB
  */
-function getAvailableMemoryGB() {
+async function getAvailableMemoryGB() {
   try {
-    const output = execSync('vm_stat', { encoding: 'utf8' });
+    const execAsync = util.promisify(child_process.exec);
+    const { stdout: output } = await execAsync('vm_stat', { encoding: 'utf8' });
     const lines = output.split('\n');
 
     const parse = (label) => {
@@ -40,9 +42,10 @@ function getAvailableMemoryGB() {
  * Returns true if there's enough memory to load a model of given size
  * @param {number} modelMemoryGB - estimated model memory requirement
  * @param {number} bufferGB - minimum free buffer to keep (default 1.5GB)
+ * @returns {Promise<boolean>}
  */
-function canLoadModel(modelMemoryGB, bufferGB = 1.5) {
-  const available = getAvailableMemoryGB();
+async function canLoadModel(modelMemoryGB, bufferGB = 1.5) {
+  const available = await module.exports.getAvailableMemoryGB();
   const canLoad = available >= modelMemoryGB + bufferGB;
   if (!canLoad) {
     console.warn(
