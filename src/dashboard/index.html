@@ -33,11 +33,19 @@
   </div>
 
   <h2>Recent Requests</h2>
-  <table>
+  <table style="margin-bottom: 32px;">
     <thead>
       <tr><th>Time</th><th>Model</th><th>Task</th><th>Latency</th><th>Tok/s</th></tr>
     </thead>
     <tbody id="recentBody"></tbody>
+  </table>
+
+  <h2>Model Benchmarks (Avg)</h2>
+  <table>
+    <thead>
+      <tr><th>Model ID</th><th>Avg Tok/s</th><th>Request Count</th></tr>
+    </thead>
+    <tbody id="benchmarksBody"></tbody>
   </table>
 
   <script src="dashboard.js"></script>

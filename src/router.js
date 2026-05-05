@@ -9,6 +9,8 @@ const { classifyTask } = require('./classifier');
 const { canLoadModel } = require('./memoryGuard');
 const { loadRegistry } = require('./modelRegistry');
 
+const MAX_RETRIES = 2;
+
 // Task → ordered list of model tags to prefer
 const TASK_ROUTING = {
   code:    ['code', 'reasoning', 'fast'],
@@ -20,11 +22,11 @@ const TASK_ROUTING = {
 };
 
 /**
- * Selects the best available model for the task, respecting memory constraints.
+ * Selects the best available models for the task, respecting memory constraints.
  * @param {string} taskType
- * @returns {object|null} model config object
+ * @returns {Array<object>} array of model config objects, sorted by score descending
  */
-function selectModel(taskType) {
+function selectModels(taskType) {
   const registry = loadRegistry();
   const preferredTags = TASK_ROUTING[taskType] || ['fast'];
 
@@ -40,13 +42,19 @@ function selectModel(taskType) {
     })
     .sort((a, b) => b.score - a.score);
 
-  return scored[0] || null;
+  return scored;
+}
+
+// Keep selectModel for backward compatibility, returning just the top model
+function selectModel(taskType) {
+  const models = selectModels(taskType);
+  return models.length > 0 ? models[0] : null;
 }
 
 /**
  * Proxies a chat completion request to the selected model's endpoint.
  */
-async function proxyRequest(model, messages, stream, options) {
+async function proxyRequest(model, messages, stream, options, clientRes) {
   const url = new URL(`${model.endpoint}/v1/chat/completions`);
   const body = JSON.stringify({
     model: model.model_name,
@@ -63,25 +71,63 @@ async function proxyRequest(model, messages, stream, options) {
       { hostname: url.hostname, port: url.port, path: url.pathname, method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
       (res) => {
+        const isSuccess = res.statusCode >= 200 && res.statusCode < 300;
+        if (stream && clientRes && isSuccess) {
+          if (!clientRes.headersSent) {
+            clientRes.writeHead(res.statusCode || 200, {
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              'Connection': 'keep-alive'
+            });
+          }
+        }
+
         let data = '';
-        res.on('data', chunk => (data += chunk));
+        res.on('data', chunk => {
+          if (stream && clientRes && (res.statusCode >= 200 && res.statusCode < 300)) {
+            clientRes.write(chunk);
+          } else {
+            data += chunk;
+          }
+        });
         res.on('end', () => {
+          if (res.statusCode < 200 || res.statusCode >= 300) {
+            return reject(new Error(`HTTP ${res.statusCode} from ${model.id}: ${data}`));
+          }
+
           const elapsed = Date.now() - startTime;
-          try {
-            const parsed = JSON.parse(data);
+          if (stream) {
+            if (clientRes) {
+              clientRes.end();
+            }
             resolve({
-              response: parsed,
+              response: null,
               meta: {
                 model_id: model.id,
                 provider: model.provider,
                 task_type: null, // filled in by routeRequest
                 latency_ms: elapsed,
-                tokens: parsed.usage?.completion_tokens || 0,
+                tokens: 0, // Streaming token counts can be more complex to parse
                 timestamp: new Date().toISOString(),
               }
             });
-          } catch (e) {
-            reject(new Error(`Failed to parse response from ${model.id}: ${e.message}`));
+          } else {
+            try {
+              const parsed = JSON.parse(data);
+              resolve({
+                response: parsed,
+                meta: {
+                  model_id: model.id,
+                  provider: model.provider,
+                  task_type: null, // filled in by routeRequest
+                  latency_ms: elapsed,
+                  tokens: parsed.usage?.completion_tokens || 0,
+                  timestamp: new Date().toISOString(),
+                }
+              });
+            } catch (e) {
+              reject(new Error(`Failed to parse response from ${model.id}: ${e.message}`));
+            }
           }
         });
       }
@@ -95,7 +141,7 @@ async function proxyRequest(model, messages, stream, options) {
 /**
  * Main entry point: classify task, select model, proxy request.
  */
-async function routeRequest({ model, messages, stream, options }) {
+async function routeRequest({ model, messages, stream, options }, clientRes) {
   // If caller specified a model ID directly (not 'auto'), find it
   const registry = loadRegistry();
   let selectedModel;
@@ -103,19 +149,43 @@ async function routeRequest({ model, messages, stream, options }) {
   if (model && model !== 'auto') {
     selectedModel = registry.models.find(m => m.id === model || m.model_name === model);
     if (!selectedModel) throw new Error(`Model '${model}' not found in registry`);
+    return proxyRequest(selectedModel, messages, stream, options, clientRes);
   } else {
     const taskType = classifyTask(messages);
     console.log(`[router] Classified as: ${taskType}`);
-    selectedModel = selectModel(taskType);
-    if (!selectedModel) throw new Error('No model available (memory pressure or empty registry)');
-    console.log(`[router] Selected: ${selectedModel.id} (${selectedModel.provider})`);
+    const availableModels = selectModels(taskType);
 
-    const result = await proxyRequest(selectedModel, messages, stream, options);
-    result.meta.task_type = taskType;
-    return result;
+    if (availableModels.length === 0) {
+      throw new Error('No model available (memory pressure or empty registry)');
+    }
+
+    let lastError = null;
+    let retries = 0;
+
+    for (const m of availableModels) {
+      if (retries > MAX_RETRIES) {
+        break;
+      }
+
+      try {
+        if (retries === 0) {
+          console.log(`[router] Selected: ${m.id} (${m.provider})`);
+        } else {
+          console.log(`[router] Fallback attempt (${retries}/${MAX_RETRIES}): trying ${m.id} (${m.provider})`);
+        }
+
+        const result = await proxyRequest(m, messages, stream, options, clientRes);
+        result.meta.task_type = taskType;
+        return result;
+      } catch (err) {
+        console.error(`[router] Error with model ${m.id}:`, err.message);
+        lastError = err;
+        retries++;
+      }
+    }
+
+    throw new Error(`All suitable models failed (max retries: ${MAX_RETRIES}). Last error: ${lastError?.message}`);
   }
-
-  return proxyRequest(selectedModel, messages, stream, options);
 }
 
 module.exports = { routeRequest, selectModel, classifyTask };
