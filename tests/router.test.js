@@ -123,3 +123,54 @@ models:
     reloadRegistry();
   }
 });
+
+test('Router Invalid JSON Handling', async (t) => {
+  const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end('INVALID JSON DATA');
+  });
+
+  await new Promise(resolve => server.listen(0, resolve));
+  const port = server.address().port;
+
+  if (fs.existsSync(CONFIG_PATH)) {
+    fs.copyFileSync(CONFIG_PATH, TEMP_BACKUP);
+  }
+
+  const mockConfig = `
+models:
+  - id: test-model-invalid
+    model_name: model1
+    provider: test
+    endpoint: http://localhost:${port}
+    memory_gb: 1
+    tags: [fast]
+`;
+  fs.writeFileSync(CONFIG_PATH, mockConfig, 'utf8');
+
+  reloadRegistry();
+
+  try {
+    await assert.rejects(
+      routeRequest({
+        model: 'test-model-invalid',
+        messages: [{ role: 'user', content: 'test' }],
+        stream: false,
+        options: {}
+      }),
+      (err) => {
+        return err.message.includes('Failed to parse response from test-model-invalid');
+      }
+    );
+  } finally {
+    server.close();
+
+    if (fs.existsSync(TEMP_BACKUP)) {
+      fs.copyFileSync(TEMP_BACKUP, CONFIG_PATH);
+      fs.unlinkSync(TEMP_BACKUP);
+    } else {
+      fs.unlinkSync(CONFIG_PATH);
+    }
+    reloadRegistry();
+  }
+});
