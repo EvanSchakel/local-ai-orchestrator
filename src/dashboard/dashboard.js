@@ -1,7 +1,8 @@
 async function fetchData() {
-  const [recent, models] = await Promise.all([
+  const [recent, models, benchmarks] = await Promise.all([
     fetch('/api/recent').then(r => r.json()),
     fetch('/api/models').then(r => r.json()),
+    fetch('/api/benchmarks').then(r => r.json()),
   ]);
 
   document.getElementById('total').textContent = recent.length;
@@ -24,6 +25,16 @@ async function fetchData() {
         <td><span class="tag">${r.task_type || '?'}</span></td>
         <td>${r.latency_ms ? r.latency_ms + 'ms' : '—'}</td>
         <td>${r.toks_per_sec ? r.toks_per_sec + ' t/s' : '—'}</td>
+      </tr>`).join('');
+  }
+
+  if (benchmarks && benchmarks.length > 0) {
+    const tbodyBench = document.getElementById('benchmarksBody');
+    tbodyBench.innerHTML = benchmarks.map(b => `
+      <tr>
+        <td>${b.model_id}</td>
+        <td>${b.avg_toks_sec ? b.avg_toks_sec.toFixed(2) + ' t/s' : '—'}</td>
+        <td>${b.request_count}</td>
       </tr>`).join('');
   }
 }
