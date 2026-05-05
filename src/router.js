@@ -6,7 +6,7 @@
 const https = require('https');
 const http = require('http');
 const { classifyTask } = require('./classifier');
-const { canLoadModel } = require('./memoryGuard');
+const { canLoadModel, getAvailableMemoryGB } = require('./memoryGuard');
 const { loadRegistry } = require('./modelRegistry');
 
 const MAX_RETRIES = 2;
@@ -29,10 +29,11 @@ const TASK_ROUTING = {
 function selectModels(taskType) {
   const registry = loadRegistry();
   const preferredTags = TASK_ROUTING[taskType] || ['fast'];
+  const availableMemory = getAvailableMemoryGB();
 
   // Score models: higher score = more preferred tags matched, in order
   const scored = registry.models
-    .filter(m => canLoadModel(m.memory_gb))
+    .filter(m => canLoadModel(m.memory_gb, 1.5, availableMemory))
     .map(m => {
       const score = preferredTags.reduce((acc, tag, idx) => {
         if (m.tags?.includes(tag)) acc += (preferredTags.length - idx);
