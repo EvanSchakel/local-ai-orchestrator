@@ -67,8 +67,11 @@ async function proxyRequest(model, messages, stream, options, clientRes) {
     const lib = url.protocol === 'https:' ? https : http;
     const startTime = Date.now();
 
+    const timeout = process.env.ROUTER_TIMEOUT ? parseInt(process.env.ROUTER_TIMEOUT, 10) : 300000;
+
     const req = lib.request(
       { hostname: url.hostname, port: url.port, path: url.pathname, method: 'POST',
+        timeout,
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
       (res) => {
         const isSuccess = res.statusCode >= 200 && res.statusCode < 300;
@@ -133,6 +136,10 @@ async function proxyRequest(model, messages, stream, options, clientRes) {
       }
     );
     req.on('error', reject);
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error(`Request to ${model.id} timed out after ${timeout}ms`));
+    });
     req.write(body);
     req.end();
   });

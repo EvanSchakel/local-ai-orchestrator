@@ -123,3 +123,89 @@ models:
     reloadRegistry();
   }
 });
+
+test('Router Timeout Logic', async (t) => {
+  process.env.ROUTER_TIMEOUT = '100'; // 100ms timeout
+
+  // Start a local mock server that never responds
+  const server = http.createServer((req, res) => {
+    // Just swallow the request and hang
+    let body = '';
+    req.on('data', chunk => body += chunk);
+  });
+
+  await new Promise(resolve => server.listen(0, resolve));
+  const port = server.address().port;
+
+  if (fs.existsSync(CONFIG_PATH)) {
+    fs.copyFileSync(CONFIG_PATH, TEMP_BACKUP);
+  }
+
+  // Write mock config with two models, both pointing to the hanging server
+  const mockConfig = `
+models:
+  - id: timeout-model-1
+    model_name: model1
+    provider: test
+    endpoint: http://localhost:${port}
+    memory_gb: 1
+    tags: [fast, code]
+  - id: timeout-model-2
+    model_name: model2
+    provider: test
+    endpoint: http://localhost:${port}
+    memory_gb: 1
+    tags: [fast, code]
+`;
+  fs.writeFileSync(CONFIG_PATH, mockConfig, 'utf8');
+  reloadRegistry();
+
+  const childProcess = require('child_process');
+  const originalExecSync = childProcess.execSync;
+  childProcess.execSync = (command, options) => {
+    if (command === 'vm_stat') {
+      return 'Mach Virtual Memory Statistics: (page size of 16384 bytes)\n' +
+             'Pages free:                               999999.\n' +
+             'Pages active:                             123456.\n' +
+             'Pages inactive:                           999999.\n' +
+             'Pages speculative:                        0.\n';
+    }
+    return originalExecSync(command, options);
+  };
+
+  const logs = [];
+  const originalConsoleLog = console.log;
+  const originalConsoleError = console.error;
+  console.log = (...args) => { logs.push(args.join(' ')); };
+  console.error = (...args) => { logs.push(args.join(' ')); };
+
+  try {
+    await routeRequest({
+      model: 'auto',
+      messages: [{ role: 'user', content: 'hello' }],
+      stream: false,
+      options: {}
+    });
+    assert.fail('Should have thrown a timeout error');
+  } catch (err) {
+    assert.ok(err.message.includes('All suitable models failed'));
+    assert.ok(err.message.includes('timed out'));
+
+    const hasFallbackLog = logs.some(log => log.includes('Fallback attempt'));
+    assert.ok(hasFallbackLog, 'Should have logged a fallback attempt');
+  } finally {
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+    childProcess.execSync = originalExecSync;
+    server.close();
+
+    if (fs.existsSync(TEMP_BACKUP)) {
+      fs.copyFileSync(TEMP_BACKUP, CONFIG_PATH);
+      fs.unlinkSync(TEMP_BACKUP);
+    } else {
+      fs.unlinkSync(CONFIG_PATH);
+    }
+    reloadRegistry();
+    delete process.env.ROUTER_TIMEOUT;
+  }
+});
