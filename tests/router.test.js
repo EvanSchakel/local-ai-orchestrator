@@ -123,3 +123,46 @@ models:
     reloadRegistry();
   }
 });
+
+test('Router selectModel Logic', (t) => {
+  // Clear require cache to ensure fresh import and allow mocking
+  delete require.cache[require.resolve('../src/modelRegistry')];
+  delete require.cache[require.resolve('../src/memoryGuard')];
+  delete require.cache[require.resolve('../src/router')];
+
+  const modelRegistry = require('../src/modelRegistry');
+  const memoryGuard = require('../src/memoryGuard');
+
+  t.mock.method(modelRegistry, 'loadRegistry', () => ({
+    models: [
+      { id: 'model-slow-reasoning', tags: ['reasoning'], memory_gb: 10 },
+      { id: 'model-fast-code', tags: ['fast', 'code'], memory_gb: 2 },
+      { id: 'model-math', tags: ['math'], memory_gb: 4 }
+    ]
+  }));
+
+  // Mock canLoadModel to only allow models requiring < 5GB
+  let memoryLimit = 5;
+  t.mock.method(memoryGuard, 'canLoadModel', (gb) => gb < memoryLimit);
+
+  const { selectModel } = require('../src/router');
+
+  // Test 1: Task type 'quick' should prefer 'fast', 'code'
+  // model-fast-code (2GB) is available and matches both 'fast' and 'code' tags.
+  const mQuick = selectModel('quick');
+  assert.ok(mQuick, 'Should return a model for quick task');
+  assert.strictEqual(mQuick.id, 'model-fast-code', 'Should select the best scoring model that fits in memory');
+
+  // Test 2: Task type 'math' should prefer 'math', 'reasoning', 'code'
+  // model-math (4GB) fits in memory and matches 'math'.
+  // model-slow-reasoning (10GB) matches 'reasoning' but does not fit in memory.
+  const mMath = selectModel('math');
+  assert.ok(mMath, 'Should return a model for math task');
+  assert.strictEqual(mMath.id, 'model-math', 'Should select the best scoring model that fits in memory');
+
+  // Test 3: No models fit in memory
+  // Temporarily change memory constraint to reject all
+  memoryLimit = 0;
+  const mNone = selectModel('quick');
+  assert.strictEqual(mNone, null, 'Should return null if no models can be loaded');
+});
