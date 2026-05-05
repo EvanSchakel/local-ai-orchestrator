@@ -42,7 +42,7 @@ function getAvailableMemoryGB() {
  * @param {number} bufferGB - minimum free buffer to keep (default 1.5GB)
  */
 function canLoadModel(modelMemoryGB, bufferGB = 1.5) {
-  const available = getAvailableMemoryGB();
+  const available = module.exports.getAvailableMemoryGB();
   const canLoad = available >= modelMemoryGB + bufferGB;
   if (!canLoad) {
     console.warn(
