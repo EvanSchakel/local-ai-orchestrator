@@ -12,7 +12,16 @@
     "reload": "curl http://localhost:3131/api/reload",
     "logs": "tail -f ~/Library/Logs/local-ai-orchestrator/stdout.log"
   },
-  "keywords": ["ollama", "lmstudio", "mlx", "local-ai", "apple-silicon", "llm", "router", "openai-compatible"],
+  "keywords": [
+    "ollama",
+    "lmstudio",
+    "mlx",
+    "local-ai",
+    "apple-silicon",
+    "llm",
+    "router",
+    "openai-compatible"
+  ],
   "author": "Evan Schakel",
   "license": "MIT",
   "dependencies": {

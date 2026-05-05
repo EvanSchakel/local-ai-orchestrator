@@ -5,6 +5,8 @@ server:
   # Set to your Tailscale IP to expose over your mesh network
   # bind_address: "100.x.x.x"
   bind_address: "127.0.0.1"
+  # Optional: secure the API with a Bearer token
+  # api_key: "YOUR_SECRET_TOKEN"
 
 memory:
   # Minimum free GB buffer before large models are blocked
