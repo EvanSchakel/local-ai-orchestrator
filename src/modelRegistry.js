@@ -27,9 +27,4 @@ function loadRegistry() {
   }
 }
 
-function reloadRegistry() {
-  _cache = null;
-  return loadRegistry();
-}
-
-module.exports = { loadRegistry, reloadRegistry };
+module.exports = { loadRegistry };
