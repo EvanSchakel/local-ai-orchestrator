@@ -11,6 +11,9 @@ const { loadRegistry } = require('./modelRegistry');
 
 const MAX_RETRIES = 2;
 
+const httpAgent = new http.Agent({ keepAlive: true });
+const httpsAgent = new https.Agent({ keepAlive: true });
+
 // Task → ordered list of model tags to prefer
 const TASK_ROUTING = {
   code:    ['code', 'reasoning', 'fast'],
@@ -67,8 +70,10 @@ async function proxyRequest(model, messages, stream, options, clientRes) {
     const lib = url.protocol === 'https:' ? https : http;
     const startTime = Date.now();
 
+    const agent = url.protocol === 'https:' ? httpsAgent : httpAgent;
     const req = lib.request(
       { hostname: url.hostname, port: url.port, path: url.pathname, method: 'POST',
+        agent,
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
       (res) => {
         const isSuccess = res.statusCode >= 200 && res.statusCode < 300;
