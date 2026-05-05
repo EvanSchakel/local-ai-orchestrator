@@ -70,19 +70,39 @@ models:
   // Also we need to mock getAvailableMemoryGB so canLoadModel passes
   // We'll mock the child_process before calling memoryGuard... wait, we already saw this doesn't work well if already required.
   // Actually, since memoryGuard.js is required by router.js, it's already in the cache.
-  // Let's just mock the child_process.execSync on the cached module by using the require.cache trick,
+  // Let's just mock the child_process.exec on the cached module by using the require.cache trick,
   // or simply provide a mock that handles vm_stat.
   const childProcess = require('child_process');
-  const originalExecSync = childProcess.execSync;
-  childProcess.execSync = (command, options) => {
-    if (command === 'vm_stat') {
-      return 'Mach Virtual Memory Statistics: (page size of 16384 bytes)\n' +
-             'Pages free:                               999999.\n' +
-             'Pages active:                             123456.\n' +
-             'Pages inactive:                           999999.\n' +
-             'Pages speculative:                        0.\n';
+  const util = require('util');
+  const originalExec = childProcess.exec;
+  childProcess.exec = (command, options, callback) => {
+    if (typeof options === 'function') {
+      callback = options;
+      options = {};
     }
-    return originalExecSync(command, options);
+    if (command === 'vm_stat') {
+      const output = 'Mach Virtual Memory Statistics: (page size of 16384 bytes)\n' +
+                     'Pages free:                               999999.\n' +
+                     'Pages active:                             123456.\n' +
+                     'Pages inactive:                           999999.\n' +
+                     'Pages speculative:                        0.\n';
+      if (callback) {
+        callback(null, output, '');
+      }
+      return {};
+    }
+    return originalExec(command, options, callback);
+  };
+  childProcess.exec[util.promisify.custom] = (command, options) => {
+    if (command === 'vm_stat') {
+      const output = 'Mach Virtual Memory Statistics: (page size of 16384 bytes)\n' +
+                     'Pages free:                               999999.\n' +
+                     'Pages active:                             123456.\n' +
+                     'Pages inactive:                           999999.\n' +
+                     'Pages speculative:                        0.\n';
+      return Promise.resolve({ stdout: output, stderr: '' });
+    }
+    return util.promisify(originalExec)(command, options);
   };
 
   const logs = [];
@@ -110,7 +130,7 @@ models:
     // Restore mocks and close server
     console.log = originalConsoleLog;
     console.error = originalConsoleError;
-    childProcess.execSync = originalExecSync;
+    childProcess.exec = originalExec;
     server.close();
 
     // Restore config

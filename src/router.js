@@ -24,15 +24,21 @@ const TASK_ROUTING = {
 /**
  * Selects the best available models for the task, respecting memory constraints.
  * @param {string} taskType
- * @returns {Array<object>} array of model config objects, sorted by score descending
+ * @returns {Promise<Array<object>>} array of model config objects, sorted by score descending
  */
-function selectModels(taskType) {
+async function selectModels(taskType) {
   const registry = loadRegistry();
   const preferredTags = TASK_ROUTING[taskType] || ['fast'];
 
+  const loadableModels = [];
+  for (const m of registry.models) {
+    if (await canLoadModel(m.memory_gb)) {
+      loadableModels.push(m);
+    }
+  }
+
   // Score models: higher score = more preferred tags matched, in order
-  const scored = registry.models
-    .filter(m => canLoadModel(m.memory_gb))
+  const scored = loadableModels
     .map(m => {
       const score = preferredTags.reduce((acc, tag, idx) => {
         if (m.tags?.includes(tag)) acc += (preferredTags.length - idx);
@@ -46,8 +52,8 @@ function selectModels(taskType) {
 }
 
 // Keep selectModel for backward compatibility, returning just the top model
-function selectModel(taskType) {
-  const models = selectModels(taskType);
+async function selectModel(taskType) {
+  const models = await selectModels(taskType);
   return models.length > 0 ? models[0] : null;
 }
 
@@ -153,7 +159,7 @@ async function routeRequest({ model, messages, stream, options }, clientRes) {
   } else {
     const taskType = classifyTask(messages);
     console.log(`[router] Classified as: ${taskType}`);
-    const availableModels = selectModels(taskType);
+    const availableModels = await selectModels(taskType);
 
     if (availableModels.length === 0) {
       throw new Error('No model available (memory pressure or empty registry)');
