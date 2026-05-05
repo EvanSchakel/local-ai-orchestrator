@@ -3,50 +3,265 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Local AI Orchestrator — Dashboard</title>
+  <title>Local AI Orchestrator</title>
   <style>
+    :root {
+      --bg-dark: #000000;
+      --bg-card: #111111;
+      --border: #333333;
+      --text-main: #EDEDED;
+      --text-muted: #888888;
+      --accent: #00E676; /* Nvidia-esque green */
+      --accent-muted: rgba(0, 230, 118, 0.15);
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #0d1117; color: #c9d1d9; font-family: 'SF Mono', 'Fira Code', monospace; padding: 24px; }
-    h1 { color: #58a6ff; font-size: 1.4rem; margin-bottom: 24px; }
-    h2 { color: #8b949e; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 32px; }
-    .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
-    .card .label { font-size: 0.75rem; color: #8b949e; margin-bottom: 4px; }
-    .card .value { font-size: 1.6rem; font-weight: bold; color: #58a6ff; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-    th { text-align: left; padding: 8px 12px; background: #161b22; color: #8b949e; border-bottom: 1px solid #30363d; }
-    td { padding: 8px 12px; border-bottom: 1px solid #21262d; }
-    tr:hover td { background: #161b22; }
-    .tag { display: inline-block; background: #1f6feb33; color: #58a6ff; border-radius: 4px; padding: 1px 6px; font-size: 0.7rem; margin-right: 4px; }
-    .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-    .green { background: #3fb950; } .yellow { background: #d29922; } .red { background: #f85149; }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      padding: 40px 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 40px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 20px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-badge {
+      font-size: 0.75rem;
+      background: var(--accent-muted);
+      color: var(--accent);
+      padding: 4px 10px;
+      border-radius: 9999px;
+      border: 1px solid rgba(0, 230, 118, 0.3);
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    h2 {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: var(--text-main);
+      margin-bottom: 16px;
+      margin-top: 40px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 24px;
+      transition: border-color 0.2s ease;
+    }
+
+    .card:hover {
+      border-color: #555;
+    }
+
+    .card .label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .card .value {
+      font-size: 2rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .card .value.small {
+      font-size: 1.25rem;
+      font-family: var(--font-mono);
+    }
+
+    .card .unit {
+      font-size: 1rem;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .table-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      font-family: var(--font-mono);
+    }
+
+    th {
+      text-align: left;
+      padding: 12px 16px;
+      color: var(--text-muted);
+      font-weight: 500;
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-main);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      background: #222;
+      color: #ccc;
+      border: 1px solid #444;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 0.75rem;
+    }
+
+    .memory-bar-container {
+      margin-top: 12px;
+      width: 100%;
+      height: 6px;
+      background: #222;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .memory-bar {
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.5s ease, background-color 0.5s ease;
+    }
+
+    .text-green { color: var(--accent); }
+    .text-yellow { color: #f5a623; }
+    .text-red { color: #ff0000; }
+
+    .bg-green { background-color: var(--accent); }
+    .bg-yellow { background-color: #f5a623; }
+    .bg-red { background-color: #ff0000; }
+
   </style>
 </head>
 <body>
-  <h1>🧠 Local AI Orchestrator</h1>
+  <header>
+    <h1>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent)"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Local AI Orchestrator
+    </h1>
+    <div class="status-badge">System Online</div>
+  </header>
 
   <div class="grid">
-    <div class="card"><div class="label">Total Requests</div><div class="value" id="total">—</div></div>
-    <div class="card"><div class="label">Avg Latency</div><div class="value" id="avgLatency">—</div></div>
-    <div class="card"><div class="label">Most Used Model</div><div class="value" style="font-size:1rem" id="topModel">—</div></div>
-    <div class="card"><div class="label">Registered Models</div><div class="value" id="modelCount">—</div></div>
+    <div class="card">
+      <div class="label">Total Requests</div>
+      <div class="value" id="total">—</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Memory Pressure</div>
+      <div class="value">
+        <span id="memPressure">—</span><span class="unit">%</span>
+      </div>
+      <div class="memory-bar-container">
+        <div id="memBar" class="memory-bar" style="width: 0%"></div>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px; font-family: var(--font-mono);">
+        <span id="memAvail">—</span> GB Available
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label">Avg Latency</div>
+      <div class="value"><span id="avgLatency">—</span><span class="unit">ms</span></div>
+    </div>
+
+    <div class="card">
+      <div class="label">Top Model</div>
+      <div class="value small text-green" id="topModel">—</div>
+    </div>
   </div>
 
-  <h2>Recent Requests</h2>
-  <table style="margin-bottom: 32px;">
-    <thead>
-      <tr><th>Time</th><th>Model</th><th>Task</th><th>Latency</th><th>Tok/s</th></tr>
-    </thead>
-    <tbody id="recentBody"></tbody>
-  </table>
+  <h2>Recent Inferences</h2>
+  <div class="table-container" style="margin-bottom: 40px;">
+    <table>
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Model Routed</th>
+          <th>Task Type</th>
+          <th>Latency</th>
+          <th>Throughput</th>
+        </tr>
+      </thead>
+      <tbody id="recentBody">
+        <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">Waiting for data...</td></tr>
+      </tbody>
+    </table>
+  </div>
 
-  <h2>Model Benchmarks (Avg)</h2>
-  <table>
-    <thead>
-      <tr><th>Model ID</th><th>Avg Tok/s</th><th>Request Count</th></tr>
-    </thead>
-    <tbody id="benchmarksBody"></tbody>
-  </table>
+  <h2>Model Benchmarks</h2>
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Model ID</th>
+          <th>Avg Tok/s</th>
+          <th>Requests</th>
+        </tr>
+      </thead>
+      <tbody id="benchmarksBody">
+        <tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 24px;">Waiting for data...</td></tr>
+      </tbody>
+    </table>
+  </div>
 
   <script src="dashboard.js"></script>
 </body>

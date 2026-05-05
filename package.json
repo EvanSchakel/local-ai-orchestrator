@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "description": "Smart local AI prompt router for Apple Silicon — auto-routes to best model based on task, memory, and benchmarks",
   "main": "src/server.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EvanSchakel/local-ai-orchestrator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/EvanSchakel/local-ai-orchestrator/issues"
+  },
+  "homepage": "https://github.com/EvanSchakel/local-ai-orchestrator#readme",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
@@ -12,12 +20,27 @@
     "reload": "curl http://localhost:3131/api/reload",
     "logs": "tail -f ~/Library/Logs/local-ai-orchestrator/stdout.log"
   },
-  "keywords": ["ollama", "lmstudio", "mlx", "local-ai", "apple-silicon", "llm", "router", "openai-compatible"],
+  "keywords": [
+    "ollama",
+    "lmstudio",
+    "mlx",
+    "local-ai",
+    "apple-silicon",
+    "llm",
+    "router",
+    "openai-compatible",
+    "artificial-intelligence",
+    "machine-learning",
+    "inference",
+    "edge-computing",
+    "orchestrator",
+    "agent"
+  ],
   "author": "Evan Schakel",
   "license": "MIT",
   "dependencies": {
     "better-sqlite3": "^9.4.3",
-    "express": "^4.19.2",
+    "express": "^4.22.1",
     "js-yaml": "^4.1.0"
   },
   "devDependencies": {
