@@ -1,213 +1,164 @@
 # 🧠 Local AI Orchestrator
 
+[![CI](https://github.com/EvanSchakel/local-ai-orchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/EvanSchakel/local-ai-orchestrator/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/Node.js-v22+-green.svg)](https://nodejs.org/)
+[![Platform: Apple Silicon](https://img.shields.io/badge/Platform-Apple_Silicon-lightgrey.svg)](https://www.apple.com/mac/)
+
 > **Smart prompt routing for Apple Silicon — zero cloud, zero compromise.**
 
-Local AI Orchestrator is a lightweight, local-first AI middleware layer built specifically for M4 Mac Mini (16GB unified memory). It automatically routes your prompts to the best available local model based on task classification, real-time memory availability, and historical performance benchmarks. No API keys. No subscriptions. No data leaving your machine.
+Local AI Orchestrator is a lightweight, local-first AI middleware layer built specifically for M-series Mac hardware (optimized for M4, 16GB unified memory). It serves as an intelligent edge-computing gateway, automatically routing generative AI prompts to the optimal local model based on intent classification, real-time system memory, and historical benchmarking.
+
+**Zero API keys. Zero subscriptions. Zero data exfiltration.**
 
 ---
 
-## 🌟 Why This Exists
+## 🎯 Executive Summary & ROI
 
-Running multiple local models (Ollama, LM Studio, MLX) is powerful — but manually deciding *which model* to use for each task is slow and error-prone. Should you use `qwen3.5:9b-q8_0` for a Java debugging session? Or spin up GPT-OSS 20B for a complex physics derivation? What if memory is already at 12GB?
+As organizations adopt open-source models (Llama 3, Qwen, Mistral) for local development to ensure privacy and reduce cloud inference costs, a new bottleneck emerges: **Model Orchestration.**
 
-This orchestrator answers those questions automatically, in real time.
+Running multiple local servers (Ollama, LM Studio, MLX) requires developers to manually decide which model to query, manage their machine's limited unified memory, and benchmark throughput—creating friction and degrading productivity.
+
+**Local AI Orchestrator solves this by providing a unified, OpenAI-compatible API gateway that:**
+1. **Reduces Cognitive Load:** Developers query one endpoint (`/v1/chat/completions`); the orchestrator handles the routing.
+2. **Prevents System Thrashing:** Built-in macOS memory monitoring blocks large models from loading if unified memory is critically low, preventing out-of-memory (OOM) lockups.
+3. **Optimizes Throughput:** Task classification routes code questions to specialized coding models and conversational queries to smaller, faster models, maximizing Tokens-per-Second (Tok/s).
 
 ---
 
 ## 🗺️ Architecture Overview
 
+The orchestrator sits entirely on your local network (or Tailscale mesh), acting as a reverse proxy with an integrated decision engine.
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                      Client Applications                        │
+│          (VS Code Roo, AnythingLLM, Terminal, Scripts)          │
+└────────────────────────────────┬────────────────────────────────┘
+                                 │ HTTP POST /v1/chat/completions
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              🧠 Orchestrator Gateway (Port 3131)                │
+│                                                                 │
+│   ┌─────────────────┐   ┌─────────────────┐   ┌─────────────┐   │
+│   │ Task Classifier │   │  Memory Guard   │   │ Benchmarks  │   │
+│   │ (NLP Regex/Rules) │   │ (macOS vm_stat) │   │ (SQLite3)   │   │
+│   └────────┬────────┘   └────────┬────────┘   └──────┬──────┘   │
+│            └─────────────────────┴───────────────────┘          │
+│                                  │                              │
+│                         ┌────────▼────────┐                     │
+│                         │ Decision Router │                     │
+│                         └────────┬────────┘                     │
+└──────────────────────────────────┼──────────────────────────────┘
+                                   │  Proxied Request
+           ┌───────────────────────┼───────────────────────┐
+           ▼                       ▼                       ▼
+   ┌───────────────┐       ┌───────────────┐       ┌───────────────┐
+   │    Ollama     │       │   LM Studio   │       │  MLX Server   │
+   │    (:11434)   │       │    (:1234)    │       │    (:8081)    │
+   └───────────────┘       └───────────────┘       └───────────────┘
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      User / Client                          │
-│          (Terminal, AnythingLLM, VS Code Roo, API)          │
-└────────────────────────┬────────────────────────────────────┘
-                         │  HTTP POST /v1/chat/completions
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│              🧠 Orchestrator Gateway (port 3131)            │
-│                                                             │
-│   ┌────────────────┐   ┌──────────────┐  ┌──────────────┐  │
-│   │ Task Classifier│   │ Memory Guard │  │  Benchmarks  │  │
-│   │  (NLP + rules) │   │ (real-time)  │  │  (SQLite DB) │  │
-│   └────────┬───────┘   └──────┬───────┘  └──────┬───────┘  │
-│            └──────────────────┴──────────────────┘          │
-│                              │                              │
-│                       ┌──────▼───────┐                      │
-│                       │   Router     │                      │
-│                       │  (Decision)  │                      │
-│                       └──────┬───────┘                      │
-└──────────────────────────────┼──────────────────────────────┘
-                               │
-           ┌───────────────────┼───────────────────┐
-           ▼                   ▼                   ▼
-   ┌───────────────┐   ┌───────────────┐   ┌───────────────┐
-   │    Ollama     │   │   LM Studio   │   │  MLX Server   │
-   │  :11434       │   │   :1234       │   │   :8081       │
-   └───────────────┘   └───────────────┘   └───────────────┘
-```
 
 ---
 
-## ⚡ Features
+## ⚡ Core Features
 
-- **Auto Task Classification** — Detects if a prompt is: `code`, `math`, `science`, `writing`, `quick`, or `rag`
-- **Memory Guard** — Reads live macOS memory pressure; blocks large model loads if < 2GB free
-- **Benchmark DB** — SQLite database logs tok/s and latency per model per task type; router uses this history
-- **Failover Routing** — If primary model is unavailable, cascades to next best option
-- **OpenAI-Compatible API** — Drop-in replacement at `http://localhost:3131/v1`; works with AnythingLLM, Roo Code, Continue.dev
-- **Web Dashboard** — Live view of active model, memory pressure, recent requests, and benchmark history
-- **Tailscale Ready** — Bind to Tailscale IP to access orchestrator from MacBook Air or iPad Pro
-- **Model Registry** — YAML-based config for all available models with tags, context lengths, and quant types
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Runtime | Node.js v22+ |
-| API Gateway | Express.js |
-| Task Classifier | Simple keyword/regex rules + optional local LLM fallback |
-| Memory Monitor | `vm_stat` parser (macOS native) |
-| Benchmark Store | SQLite (via `better-sqlite3`) |
-| Dashboard | Simple HTML/JS served by Express |
-| Config | YAML (`js-yaml`) |
-| Process Manager | `launchctl` plist (auto-start on login) |
+- **Auto Task Classification** — Detects intent: `code`, `math`, `science`, `writing`, `quick`, or `rag`.
+- **Memory Guard** — Reads live macOS memory pressure; dynamically blocks heavy model loads if free memory drops below configured thresholds (e.g., < 2GB).
+- **Benchmark Database** — Embedded SQLite tracks Tok/s and latency per model and task type, allowing the router to learn and optimize.
+- **Failover Routing** — Gracefully cascades to the next best model if the primary choice is unavailable.
+- **OpenAI-Compatible API** — Functions as a drop-in replacement for OpenAI's `https://api.openai.com/v1`, working instantly with standard tooling.
+- **Observability Dashboard** — Real-time telemetry web UI displaying active models, memory pressure, request history, and benchmarks.
+- **Tailscale Ready** — Bind to your Tailscale IP to access your Mac's models securely from an iPad Pro or remote device.
+- **Dynamic Registry** — YAML-based configuration (`models.yaml`) supports hot-reloading.
 
 ---
 
-## 📦 Installation
+## 🛠️ Technical Stack
+
+| Component | Technology / Library | Description |
+|-----------|----------------------|-------------|
+| **Runtime** | Node.js v22+ | Modern, high-performance V8 runtime |
+| **Gateway** | Express.js | Lightweight HTTP routing |
+| **Database** | `better-sqlite3` | Synchronous, high-performance C++ SQLite driver |
+| **Config** | `js-yaml` | Human-readable model registry |
+| **OS Interop**| `child_process` | Asynchronous execution of macOS `vm_stat` |
+
+---
+
+## 📦 Installation & Setup
 
 ### Prerequisites
-
-- macOS Tahoe 26+ (Apple Silicon)
+- Apple Silicon Mac (M1/M2/M3/M4)
+- macOS 14+ (Sonoma/Sequoia)
 - Node.js v22+ (`brew install node`)
-- At least one of: Ollama, LM Studio, or MLX server running
+- At least one local inference server running (Ollama, LM Studio, or MLX)
 
 ### Quick Start
 
 ```bash
-# Clone the repo
+# 1. Clone the repository
 git clone https://github.com/EvanSchakel/local-ai-orchestrator.git
 cd local-ai-orchestrator
 
-# Install dependencies
+# 2. Install dependencies
 npm install
 
-# Copy and edit config
+# 3. Configure your models
 cp config/models.example.yaml config/models.yaml
-# Edit config/models.yaml to match your installed models
+# (Edit config/models.yaml to map to your installed models)
 
-# Start the orchestrator
+# 4. Start the server
 npm start
-
-# OR run as a background service (auto-start on login)
-npm run install-service
 ```
 
-The gateway will be available at `http://localhost:3131/v1`.
+### Access Points
+- **API Endpoint:** `http://localhost:3131/v1/chat/completions`
+- **Dashboard UI:** `http://localhost:3131/dashboard`
 
-Dashboard: `http://localhost:3131/dashboard`
+*(To install as a background service that starts on login, run `npm run install-service`)*
 
 ---
 
-## ⚙️ Configuration (`config/models.yaml`)
+## 🔌 Integration Examples
 
-See `config/models.example.yaml` for a full example. Key fields:
-
-```yaml
-models:
-  - id: qwen3.5-9b-q8
-    provider: ollama
-    endpoint: http://localhost:11434
-    model_name: qwen3.5:9b-q8_0
-    context_length: 16384
-    memory_gb: 9.5
-    tags: [code, math, reasoning]
-    preferred_for: [code, science]
-```
-
----
-
-## 🗂️ Project Structure
-
-```
-local-ai-orchestrator/
-├── src/
-│   ├── server.js           # Express gateway entrypoint
-│   ├── router.js           # Core routing decision engine
-│   ├── classifier.js       # Prompt task classifier
-│   ├── memoryGuard.js      # macOS memory pressure reader
-│   ├── benchmarkStore.js   # SQLite read/write for benchmarks
-│   ├── modelRegistry.js    # Loads and validates models.yaml
-│   └── dashboard/
-│       ├── index.html      # Live dashboard UI
-│       └── dashboard.js    # Client-side dashboard logic
-├── config/
-│   ├── models.example.yaml # Example model config
-│   └── orchestrator.yaml   # Global settings
-├── scripts/
-│   ├── install-service.sh  # launchctl plist installer
-│   └── benchmark-run.sh    # Manual benchmark runner
-├── data/
-│   └── .gitkeep            # SQLite DB stored here at runtime
-├── tests/
-│   ├── classifier.test.js
-│   ├── router.test.js
-│   └── memoryGuard.test.js
-├── docs/
-│   ├── ROUTING_LOGIC.md
-│   ├── ADDING_MODELS.md
-│   └── TAILSCALE_SETUP.md
-├── package.json
-└── README.md
-```
-
----
-
-## 🔌 API Usage
-
-The orchestrator exposes a standard OpenAI-compatible endpoint:
+### cURL
 
 ```bash
 curl http://localhost:3131/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "auto",
-    "messages": [{"role": "user", "content": "Derive the kinematics equations from Newton's second law"}]
+    "messages": [{"role": "user", "content": "Write a Python script to scrape a website."}]
   }'
 ```
+*(Setting `"model": "auto"` engages the Orchestrator's decision engine. You can also specify a direct model ID to bypass routing.)*
 
-Set `"model": "auto"` to let the orchestrator choose. Or specify a model ID directly to bypass routing.
-
----
-
-## 📊 Routing Logic Summary
-
-| Task Type | Primary Model | Fallback | Notes |
-|---|---|---|---|
-| `code` | qwen3.5:9b-q8_0 | qwen3.5:4b-q4 | Best code bench on 16GB |
-| `math` | GPT-OSS 20B | qwen3.5:9b-q8_0 | If 20B fits in memory |
-| `science` | GPT-OSS 20B | qwen3.5:9b-q8_0 | Physics/chem reasoning |
-| `writing` | qwen3.5:4b-q4 | mlx-qwen-4b | Fast, light |
-| `quick` | qwen3.5:4b-q4 | mlx-qwen-4b | < 200 token prompts |
-| `rag` | qwen3.5:9b-q8_0 | qwen3.5:4b-q4 | AnythingLLM context |
-
-Full routing logic documented in `docs/ROUTING_LOGIC.md`.
+### VS Code (Roo Code / Continue.dev)
+Configure your extension to use an "OpenAI Compatible" provider:
+- **Base URL:** `http://localhost:3131/v1`
+- **API Key:** `sk-local` (or any string)
+- **Model:** `auto`
 
 ---
 
-## 🛣️ Roadmap
+## 📊 Routing Logic At-a-Glance
 
-- [ ] v0.1 — Core routing, memory guard, Ollama + LM Studio support
-- [ ] v0.2 — SQLite benchmark tracking + dashboard
-- [ ] v0.3 — MLX server support + Tailscale bind option
-- [ ] v0.4 — AnythingLLM auto-config injection
-- [ ] v0.5 — iOS Shortcut integration (send from iPad Pro → orchestrator)
-- [ ] v1.0 — Stable release with launchctl auto-service installer
+| Task Classification | Primary Model Strategy | Fallback Strategy | Rationale |
+|---------------------|------------------------|-------------------|-----------|
+| `code` | Heavy/Capable (e.g. Qwen 9B) | Light Code (e.g. Qwen 4B) | Maximize logic accuracy. |
+| `math` / `science` | Max Reasoning (e.g. GPT-OSS 20B) | Heavy/Capable | Requires deep context; slow but accurate. |
+| `writing` / `quick` | Small/Fast (e.g. 4B Quants) | MLX native | Maximize Tok/s for conversational UX. |
+| `rag` | High Context | - | Routes based on context window size. |
+
+*For deep dives into the routing algorithms and configuration, see the [Documentation Directory](docs/).*
 
 ---
+
+## 🤝 Contributing
+
+We welcome contributions from the community! Please see our [Contributing Guidelines](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md) before submitting pull requests.
 
 ## 📄 License
 
-MIT © 2026 Evan Schakel
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
