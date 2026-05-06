@@ -1,0 +1,3 @@
+## 2023-10-27 - [HTTP Keep-Alive]
+**Learning:** By default, Node.js HTTP/HTTPS requests do not use persistent connections (`keepAlive: false`). When acting as a proxy router that frequently forwards requests to the same set of local servers (e.g., local LLM APIs), the overhead of setting up and tearing down TCP connections for every single proxy request causes significant latency.
+**Action:** When making frequent outgoing requests to the same endpoints in Node.js, explicitly configure and use shared `http.Agent` and `https.Agent` instances with `keepAlive: true` to enable connection pooling and eliminate TCP handshake overhead.

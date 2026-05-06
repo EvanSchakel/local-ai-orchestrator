@@ -5,6 +5,13 @@
 
 const https = require('https');
 const http = require('http');
+
+// Use shared keep-alive agents to enable HTTP connection pooling.
+// This significantly reduces latency by preventing the teardown and
+// setup of TCP connections for repeated requests to the same local models.
+const httpAgent = new http.Agent({ keepAlive: true });
+const httpsAgent = new https.Agent({ keepAlive: true });
+
 const { classifyTask } = require('./classifier');
 const { canLoadModel } = require('./memoryGuard');
 const { loadRegistry } = require('./modelRegistry');
@@ -75,6 +82,7 @@ async function proxyRequest(model, messages, stream, options, clientRes) {
 
     const req = lib.request(
       { hostname: url.hostname, port: url.port, path: url.pathname, method: 'POST',
+        agent: url.protocol === 'https:' ? httpsAgent : httpAgent,
         timeout: options.timeout !== undefined ? options.timeout : 300000, // default 5 minutes
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
       (res) => {
