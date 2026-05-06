@@ -1,0 +1,4 @@
+## 2026-05-06 - [Missing API Authentication]
+**Vulnerability:** The orchestrator's API endpoints (`/v1/chat/completions` and `/api/*`) were exposed without any authentication, allowing anyone with access to the server's port to submit requests or read benchmark data. This was a critical security issue since the system is intended for local/Tailscale use but could still be accessed by unauthorized applications or users on the network.
+**Learning:** The initial implementation prioritized ease of use and local development (no API keys required), which inadvertently left sensitive endpoints unprotected. There was no mechanism to enforce an API key if configured.
+**Prevention:** Always implement an authentication middleware for any API endpoints, even for "local" tools, since they may be exposed over a mesh network (like Tailscale) or accessed by malicious local processes. Allow an opt-in API key via configuration and environment variables.

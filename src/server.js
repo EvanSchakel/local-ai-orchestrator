@@ -7,6 +7,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const yaml = require('js-yaml');
 const { routeRequest } = require('./router');
 const { loadRegistry, reloadRegistry } = require('./modelRegistry');
 const benchmarkStore = require('./benchmarkStore');
@@ -15,8 +16,43 @@ const { getAvailableMemoryGB } = require('./memoryGuard');
 const app = express();
 const PORT = process.env.ORCHESTRATOR_PORT || 3131;
 
+// Load orchestrator config for API key
+let serverApiKey = process.env.ORCHESTRATOR_API_KEY;
+try {
+  const orchestratorConfigPath = path.join(__dirname, '..', 'config', 'orchestrator.yaml');
+  if (fs.existsSync(orchestratorConfigPath)) {
+    const orchestratorConfig = yaml.load(fs.readFileSync(orchestratorConfigPath, 'utf8'));
+    if (orchestratorConfig?.server?.api_key) {
+      serverApiKey = serverApiKey || String(orchestratorConfig.server.api_key);
+    }
+  }
+} catch (err) {
+  console.warn('[orchestrator] Failed to load orchestrator.yaml for api_key:', err.message);
+}
+
+// ── Authentication Middleware ────────────────────────────────────────────────
+const authMiddleware = (req, res, next) => {
+  if (!serverApiKey) return next();
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing or invalid Authorization header' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  if (token !== serverApiKey) {
+    return res.status(403).json({ error: 'Forbidden: Invalid API Key' });
+  }
+
+  next();
+};
+
 app.use(express.json({ limit: '4mb' }));
 app.use(express.static(path.join(__dirname, 'dashboard')));
+
+// Apply auth middleware to API and V1 routes
+app.use('/v1', authMiddleware);
+app.use('/api', authMiddleware);
 
 // ── OpenAI-compatible chat completions endpoint ──────────────────────────────
 app.post('/v1/chat/completions', async (req, res) => {
