@@ -35,17 +35,21 @@
   <h2>Recent Requests</h2>
   <table style="margin-bottom: 32px;">
     <thead>
-      <tr><th>Time</th><th>Model</th><th>Task</th><th>Latency</th><th>Tok/s</th></tr>
+      <tr><th scope="col">Time</th><th scope="col">Model</th><th scope="col">Task</th><th scope="col">Latency</th><th scope="col">Tok/s</th></tr>
     </thead>
-    <tbody id="recentBody"></tbody>
+    <tbody id="recentBody">
+      <tr><td colspan="5" style="text-align: center; color: #8b949e; padding: 24px;">Loading recent requests...</td></tr>
+    </tbody>
   </table>
 
   <h2>Model Benchmarks (Avg)</h2>
   <table>
     <thead>
-      <tr><th>Model ID</th><th>Avg Tok/s</th><th>Request Count</th></tr>
+      <tr><th scope="col">Model ID</th><th scope="col">Avg Tok/s</th><th scope="col">Request Count</th></tr>
     </thead>
-    <tbody id="benchmarksBody"></tbody>
+    <tbody id="benchmarksBody">
+      <tr><td colspan="3" style="text-align: center; color: #8b949e; padding: 24px;">Loading model benchmarks...</td></tr>
+    </tbody>
   </table>
 
   <script src="dashboard.js"></script>

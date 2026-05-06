@@ -8,6 +8,7 @@ async function fetchData() {
   document.getElementById('total').textContent = recent.length;
   document.getElementById('modelCount').textContent = models.models?.length || 0;
 
+  const tbody = document.getElementById('recentBody');
   if (recent.length > 0) {
     const avgMs = recent.reduce((a, r) => a + (r.latency_ms || 0), 0) / recent.length;
     document.getElementById('avgLatency').textContent = Math.round(avgMs) + 'ms';
@@ -17,7 +18,6 @@ async function fetchData() {
     const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
     document.getElementById('topModel').textContent = top ? top[0] : '—';
 
-    const tbody = document.getElementById('recentBody');
     tbody.innerHTML = recent.map(r => `
       <tr>
         <td>${new Date(r.timestamp).toLocaleTimeString()}</td>
@@ -26,16 +26,20 @@ async function fetchData() {
         <td>${r.latency_ms ? r.latency_ms + 'ms' : '—'}</td>
         <td>${r.toks_per_sec ? r.toks_per_sec + ' t/s' : '—'}</td>
       </tr>`).join('');
+  } else {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #8b949e; padding: 24px;">No requests recorded yet. Make a request to see it here!</td></tr>';
   }
 
+  const tbodyBench = document.getElementById('benchmarksBody');
   if (benchmarks && benchmarks.length > 0) {
-    const tbodyBench = document.getElementById('benchmarksBody');
     tbodyBench.innerHTML = benchmarks.map(b => `
       <tr>
         <td>${b.model_id}</td>
         <td>${b.avg_toks_sec ? b.avg_toks_sec.toFixed(2) + ' t/s' : '—'}</td>
         <td>${b.request_count}</td>
       </tr>`).join('');
+  } else {
+    tbodyBench.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #8b949e; padding: 24px;">No benchmarks collected yet.</td></tr>';
   }
 }
 
