@@ -7,16 +7,41 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const yaml = require('js-yaml');
 const { routeRequest } = require('./router');
 const { loadRegistry, reloadRegistry } = require('./modelRegistry');
 const benchmarkStore = require('./benchmarkStore');
 const { getAvailableMemoryGB } = require('./memoryGuard');
 
 const app = express();
-const PORT = process.env.ORCHESTRATOR_PORT || 3131;
+
+let orchestratorConfig = { server: {} };
+try {
+  const configPath = path.join(__dirname, '..', 'config', 'orchestrator.yaml');
+  if (fs.existsSync(configPath)) {
+    orchestratorConfig = yaml.load(fs.readFileSync(configPath, 'utf8')) || { server: {} };
+  }
+} catch (err) {
+  console.error('[orchestrator] failed to load orchestrator.yaml:', err.message);
+}
+
+const PORT = process.env.ORCHESTRATOR_PORT || orchestratorConfig.server?.port || 3131;
+const BIND_ADDRESS = orchestratorConfig.server?.bind_address || '127.0.0.1';
+const API_KEY = process.env.ORCHESTRATOR_API_KEY || orchestratorConfig.server?.api_key;
 
 app.use(express.json({ limit: '4mb' }));
 app.use(express.static(path.join(__dirname, 'dashboard')));
+
+// ── Authentication Middleware ────────────────────────────────────────────────
+app.use((req, res, next) => {
+  if (API_KEY && (req.path.startsWith('/v1/') || req.path.startsWith('/api/'))) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || authHeader !== `Bearer ${API_KEY}`) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+  }
+  next();
+});
 
 // ── OpenAI-compatible chat completions endpoint ──────────────────────────────
 app.post('/v1/chat/completions', async (req, res) => {
@@ -94,10 +119,10 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', port: PORT, timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, () => {
-  console.log(`🧠 Local AI Orchestrator running at http://localhost:${PORT}`);
-  console.log(`   Dashboard: http://localhost:${PORT}/dashboard`);
-  console.log(`   API:       http://localhost:${PORT}/v1/chat/completions`);
+app.listen(PORT, BIND_ADDRESS, () => {
+  console.log(`🧠 Local AI Orchestrator running at http://${BIND_ADDRESS}:${PORT}`);
+  console.log(`   Dashboard: http://${BIND_ADDRESS}:${PORT}/dashboard`);
+  console.log(`   API:       http://${BIND_ADDRESS}:${PORT}/v1/chat/completions`);
 });
 
 module.exports = app;
