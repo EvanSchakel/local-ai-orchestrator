@@ -34,7 +34,13 @@ function classifyTask(messages) {
     .join(' ');
 
   // Very short prompts → quick
-  if (userContent.trim().split(/\s+/).length < 12) return 'quick';
+  // Optimized word count avoiding Array allocation overhead
+  let wordCount = 0;
+  const wordRegex = /\S+/g;
+  while (wordRegex.exec(userContent) !== null) {
+    if (++wordCount >= 12) break;
+  }
+  if (wordCount < 12) return 'quick';
 
   // Check for RAG context injection (AnythingLLM adds large system prompts)
   const systemContent = messages.find(m => m.role === 'system')?.content || '';
