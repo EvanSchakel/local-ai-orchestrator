@@ -122,6 +122,11 @@
       overflow-x: auto;
     }
 
+    .table-container:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -193,12 +198,12 @@
 <body>
   <header>
     <h1>
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent)"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent)"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
       Local AI Orchestrator
     </h1>
     <div class="status-badge">System Online</div>
   </header>
-
+  <main>
   <div class="grid">
     <div class="card">
       <div class="label">Total Requests</div>
@@ -210,7 +215,7 @@
       <div class="value">
         <span id="memPressure">—</span><span class="unit">%</span>
       </div>
-      <div class="memory-bar-container">
+      <div id="memProgress" class="memory-bar-container" role="progressbar" aria-label="Memory Pressure" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <div id="memBar" class="memory-bar" style="width: 0%"></div>
       </div>
       <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px; font-family: var(--font-mono);">
@@ -229,8 +234,8 @@
     </div>
   </div>
 
-  <h2>Recent Inferences</h2>
-  <div class="table-container" style="margin-bottom: 40px;">
+  <h2 id="recent-inferences-heading">Recent Inferences</h2>
+  <div class="table-container" style="margin-bottom: 40px;" tabindex="0" aria-labelledby="recent-inferences-heading">
     <table>
       <thead>
         <tr>
@@ -247,8 +252,8 @@
     </table>
   </div>
 
-  <h2>Model Benchmarks</h2>
-  <div class="table-container">
+  <h2 id="model-benchmarks-heading">Model Benchmarks</h2>
+  <div class="table-container" tabindex="0" aria-labelledby="model-benchmarks-heading">
     <table>
       <thead>
         <tr>
@@ -262,7 +267,7 @@
       </tbody>
     </table>
   </div>
-
+  </main>
   <script src="dashboard.js"></script>
 </body>
 </html>
