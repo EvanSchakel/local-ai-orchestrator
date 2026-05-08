@@ -46,9 +46,13 @@ async function fetchData() {
       const pressure = memory.pressure_pct || 0;
       const memEl = document.getElementById('memPressure');
       const barEl = document.getElementById('memBar');
+      const progressEl = document.getElementById('memProgress');
 
       memEl.textContent = pressure;
       barEl.style.width = `${Math.min(pressure, 100)}%`;
+      if (progressEl) {
+        progressEl.setAttribute('aria-valuenow', pressure);
+      }
       document.getElementById('memAvail').textContent = memory.available_gb?.toFixed(1) || '—';
 
       // Update colors based on thresholds
