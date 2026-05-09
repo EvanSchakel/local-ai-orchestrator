@@ -9,6 +9,13 @@ const { classifyTask } = require('./classifier');
 const { canLoadModel } = require('./memoryGuard');
 const { loadRegistry } = require('./modelRegistry');
 
+// ⚡ Bolt Optimization: Use module-level shared Agents with keepAlive enabled.
+// By default, Node.js spins up a new TCP connection for every outgoing request.
+// Reusing connections avoids continuous TCP handshakes and prevents ephemeral port exhaustion,
+// significantly improving proxy throughput when routing to local models.
+const httpAgent = new http.Agent({ keepAlive: true });
+const httpsAgent = new https.Agent({ keepAlive: true });
+
 const MAX_RETRIES = 2;
 
 // Task → ordered list of model tags to prefer
@@ -71,10 +78,12 @@ async function proxyRequest(model, messages, stream, options, clientRes) {
 
   return new Promise((resolve, reject) => {
     const lib = url.protocol === 'https:' ? https : http;
+    const agent = url.protocol === 'https:' ? httpsAgent : httpAgent;
     const startTime = Date.now();
 
     const req = lib.request(
       { hostname: url.hostname, port: url.port, path: url.pathname, method: 'POST',
+        agent: agent,
         timeout: options.timeout !== undefined ? options.timeout : 300000, // default 5 minutes
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
       (res) => {
