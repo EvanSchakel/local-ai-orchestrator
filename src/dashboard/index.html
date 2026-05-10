@@ -180,6 +180,12 @@
       transition: width 0.5s ease, background-color 0.5s ease;
     }
 
+    .memory-bar:focus-visible,
+    .table-container:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
     .text-green { color: var(--accent); }
     .text-yellow { color: #f5a623; }
     .text-red { color: #ff0000; }
@@ -211,7 +217,7 @@
         <span id="memPressure">—</span><span class="unit">%</span>
       </div>
       <div class="memory-bar-container">
-        <div id="memBar" class="memory-bar" style="width: 0%" role="progressbar" aria-label="Memory Pressure" aria-valuemin="0" aria-valuemax="100"></div>
+        <div id="memBar" class="memory-bar" style="width: 0%" role="progressbar" aria-label="Memory Pressure" aria-valuemin="0" aria-valuemax="100" tabindex="0"></div>
       </div>
       <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px; font-family: var(--font-mono);">
         <span id="memAvail">—</span> GB Available
@@ -229,8 +235,8 @@
     </div>
   </div>
 
-  <h2>Recent Inferences</h2>
-  <div class="table-container" style="margin-bottom: 40px;">
+  <h2 id="recent-inferences-heading">Recent Inferences</h2>
+  <div class="table-container" style="margin-bottom: 40px;" tabindex="0" role="region" aria-labelledby="recent-inferences-heading">
     <table>
       <thead>
         <tr>
@@ -247,8 +253,8 @@
     </table>
   </div>
 
-  <h2>Model Benchmarks</h2>
-  <div class="table-container">
+  <h2 id="model-benchmarks-heading">Model Benchmarks</h2>
+  <div class="table-container" tabindex="0" role="region" aria-labelledby="model-benchmarks-heading">
     <table>
       <thead>
         <tr>
