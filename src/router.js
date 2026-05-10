@@ -10,6 +10,7 @@ const { canLoadModel } = require('./memoryGuard');
 const { loadRegistry } = require('./modelRegistry');
 
 const MAX_RETRIES = 2;
+const MAX_RESPONSE_SIZE = 50 * 1024 * 1024; // 50MB
 
 // Task → ordered list of model tags to prefer
 const TASK_ROUTING = {
@@ -90,11 +91,16 @@ async function proxyRequest(model, messages, stream, options, clientRes) {
         }
 
         let data = '';
+        let dataSize = 0;
         res.on('data', chunk => {
           if (stream && clientRes && (res.statusCode >= 200 && res.statusCode < 300)) {
             clientRes.write(chunk);
           } else {
             data += chunk;
+            dataSize += chunk.length;
+            if (dataSize > MAX_RESPONSE_SIZE) {
+              req.destroy(new Error('Response size exceeded 50MB limit'));
+            }
           }
         });
         res.on('end', () => {
