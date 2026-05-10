@@ -11,6 +11,10 @@ const { loadRegistry } = require('./modelRegistry');
 
 const MAX_RETRIES = 2;
 
+// Shared keep-alive agents to eliminate TCP connection overhead for frequently used models
+const httpAgent = new http.Agent({ keepAlive: true });
+const httpsAgent = new https.Agent({ keepAlive: true });
+
 // Task → ordered list of model tags to prefer
 const TASK_ROUTING = {
   code:    ['code', 'reasoning', 'fast'],
@@ -75,6 +79,7 @@ async function proxyRequest(model, messages, stream, options, clientRes) {
 
     const req = lib.request(
       { hostname: url.hostname, port: url.port, path: url.pathname, method: 'POST',
+        agent: url.protocol === 'https:' ? httpsAgent : httpAgent,
         timeout: options.timeout !== undefined ? options.timeout : 300000, // default 5 minutes
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
       (res) => {
