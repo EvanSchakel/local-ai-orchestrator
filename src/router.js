@@ -6,6 +6,10 @@
 const https = require('https');
 const http = require('http');
 const { classifyTask } = require('./classifier');
+
+// Shared agents for connection pooling to maintain high throughput
+const httpAgent = new http.Agent({ keepAlive: true });
+const httpsAgent = new https.Agent({ keepAlive: true });
 const { canLoadModel } = require('./memoryGuard');
 const { loadRegistry } = require('./modelRegistry');
 
@@ -70,11 +74,14 @@ async function proxyRequest(model, messages, stream, options, clientRes) {
   });
 
   return new Promise((resolve, reject) => {
-    const lib = url.protocol === 'https:' ? https : http;
+    const isHttps = url.protocol === 'https:';
+    const lib = isHttps ? https : http;
+    const agent = isHttps ? httpsAgent : httpAgent;
     const startTime = Date.now();
 
     const req = lib.request(
       { hostname: url.hostname, port: url.port, path: url.pathname, method: 'POST',
+        agent: agent,
         timeout: options.timeout !== undefined ? options.timeout : 300000, // default 5 minutes
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
       (res) => {
