@@ -6,6 +6,11 @@
 const https = require('https');
 const http = require('http');
 const { classifyTask } = require('./classifier');
+
+// Use Keep-Alive agents to enable connection pooling for outbound requests
+// This reduces TCP/TLS handshake overhead significantly for repeated API calls
+const httpAgent = new http.Agent({ keepAlive: true });
+const httpsAgent = new https.Agent({ keepAlive: true });
 const { canLoadModel } = require('./memoryGuard');
 const { loadRegistry } = require('./modelRegistry');
 
@@ -76,6 +81,7 @@ async function proxyRequest(model, messages, stream, options, clientRes) {
     const req = lib.request(
       { hostname: url.hostname, port: url.port, path: url.pathname, method: 'POST',
         timeout: options.timeout !== undefined ? options.timeout : 300000, // default 5 minutes
+        agent: url.protocol === 'https:' ? httpsAgent : httpAgent,
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
       (res) => {
         const isSuccess = res.statusCode >= 200 && res.statusCode < 300;
