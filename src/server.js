@@ -34,10 +34,13 @@ app.use(express.static(path.join(__dirname, 'dashboard')));
 
 // ── Authentication Middleware ────────────────────────────────────────────────
 app.use((req, res, next) => {
-  if (API_KEY && (req.path.startsWith('/v1/') || req.path.startsWith('/api/'))) {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || authHeader !== `Bearer ${API_KEY}`) {
-      return res.status(401).json({ error: 'Unauthorized' });
+  if (API_KEY) {
+    const normalizedPath = req.path.toLowerCase().replace(/\/+/g, '/');
+    if (normalizedPath.startsWith('/v1/') || normalizedPath.startsWith('/api/')) {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || authHeader !== `Bearer ${API_KEY}`) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
     }
   }
   next();
