@@ -1,3 +1,3 @@
-## 2025-02-23 - Custom Progress Bar Accessibility
-**Learning:** Custom DOM-based visual bars (like the memory pressure bar) are opaque to screen readers by default. They require explicit `role="progressbar"`, `aria-label`, and `aria-valuemin`/`aria-valuemax` attributes, along with dynamic `aria-valuenow` updates to accurately communicate state.
-**Action:** When implementing custom data visualizations or loading indicators, always pair visual updates (like `width: X%`) with corresponding `aria-valuenow` DOM updates.
+## 2024-05-14 - Keyboard Access for Scrollable Areas
+**Learning:** CSS-scrollable areas (like `.table-container` with `overflow-x: auto`) require explicit role (`role="region"`) and keyboard navigation support (`tabindex="0"`, `:focus-visible`) to be properly accessed and navigated by keyboard and screen reader users in this application.
+**Action:** Always verify scrollable containers have explicit ARIA labels, roles, and focus indicators.
