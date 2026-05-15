@@ -42,10 +42,11 @@ async function getAvailableMemoryGB() {
  * Returns true if there's enough memory to load a model of given size
  * @param {number} modelMemoryGB - estimated model memory requirement
  * @param {number} bufferGB - minimum free buffer to keep (default 1.5GB)
+ * @param {number|null} availableMemoryGB - pre-calculated available memory to avoid refetching
  * @returns {Promise<boolean>}
  */
-async function canLoadModel(modelMemoryGB, bufferGB = 1.5) {
-  const available = await module.exports.getAvailableMemoryGB();
+async function canLoadModel(modelMemoryGB, bufferGB = 1.5, availableMemoryGB = null) {
+  const available = availableMemoryGB !== null ? availableMemoryGB : await module.exports.getAvailableMemoryGB();
   const canLoad = available >= modelMemoryGB + bufferGB;
   if (!canLoad) {
     console.warn(
