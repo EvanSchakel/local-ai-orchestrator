@@ -122,6 +122,11 @@
       overflow-x: auto;
     }
 
+    .table-container:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -229,8 +234,8 @@
     </div>
   </div>
 
-  <h2>Recent Inferences</h2>
-  <div class="table-container" style="margin-bottom: 40px;">
+  <h2 id="recent-heading">Recent Inferences</h2>
+  <div class="table-container" style="margin-bottom: 40px;" tabindex="0" role="region" aria-labelledby="recent-heading">
     <table>
       <thead>
         <tr>
@@ -247,8 +252,8 @@
     </table>
   </div>
 
-  <h2>Model Benchmarks</h2>
-  <div class="table-container">
+  <h2 id="benchmarks-heading">Model Benchmarks</h2>
+  <div class="table-container" tabindex="0" role="region" aria-labelledby="benchmarks-heading">
     <table>
       <thead>
         <tr>
