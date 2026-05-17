@@ -34,7 +34,10 @@ app.use(express.static(path.join(__dirname, 'dashboard')));
 
 // ── Authentication Middleware ────────────────────────────────────────────────
 app.use((req, res, next) => {
-  if (API_KEY && (req.path.startsWith('/v1/') || req.path.startsWith('/api/'))) {
+  // Normalize path before matching prefixes to prevent Express path routing
+  // bypasses (e.g., //v1/ or /V1/ bypassing this check but still being valid Express routes)
+  const normalizedPath = req.path.toLowerCase().replace(/\/+/g, '/');
+  if (API_KEY && (normalizedPath.startsWith('/v1/') || normalizedPath.startsWith('/api/'))) {
     const authHeader = req.headers.authorization;
     if (!authHeader || authHeader !== `Bearer ${API_KEY}`) {
       return res.status(401).json({ error: 'Unauthorized' });
