@@ -6,7 +6,7 @@
 const https = require('https');
 const http = require('http');
 const { classifyTask } = require('./classifier');
-const { canLoadModel } = require('./memoryGuard');
+const { canLoadModel, getAvailableMemoryGB } = require('./memoryGuard');
 const { loadRegistry } = require('./modelRegistry');
 
 const MAX_RETRIES = 2;
@@ -31,8 +31,9 @@ async function selectModels(taskType) {
   const preferredTags = TASK_ROUTING[taskType] || ['fast'];
 
   const loadableModels = [];
+  const availableGB = await getAvailableMemoryGB();
   for (const m of registry.models) {
-    if (await canLoadModel(m.memory_gb)) {
+    if (await canLoadModel(m.memory_gb, 1.5, availableGB)) {
       loadableModels.push(m);
     }
   }

@@ -44,8 +44,8 @@ async function getAvailableMemoryGB() {
  * @param {number} bufferGB - minimum free buffer to keep (default 1.5GB)
  * @returns {Promise<boolean>}
  */
-async function canLoadModel(modelMemoryGB, bufferGB = 1.5) {
-  const available = await module.exports.getAvailableMemoryGB();
+async function canLoadModel(modelMemoryGB, bufferGB = 1.5, availableGB = null) {
+  const available = availableGB !== null ? availableGB : await module.exports.getAvailableMemoryGB();
   const canLoad = available >= modelMemoryGB + bufferGB;
   if (!canLoad) {
     console.warn(
